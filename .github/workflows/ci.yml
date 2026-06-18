@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fintech_test
+          POSTGRES_USER: fintech
+          POSTGRES_PASSWORD: fintech
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintech -d fintech_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://fintech:fintech@localhost:5432/fintech_test?schema=public
+      JWT_SECRET: ci-secret-with-more-than-thirty-two-characters
+      JWT_EXPIRES_IN: 2h
+      COOKIE_SECURE: "false"
+      CORS_ORIGIN: http://localhost:5173
+      PORT: 4000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate --workspace @fintech/api
+      - run: npm run db:migrate --workspace @fintech/api
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build

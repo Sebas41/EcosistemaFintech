@@ -5,5 +5,8 @@ coverage/
 .env.*
 !.env.example
 *.log
+*.tsbuildinfo
 apps/web/.vite/
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
 apps/api/prisma/dev.db

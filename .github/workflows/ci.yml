@@ -41,5 +41,5 @@ jobs:
       - run: npm run prisma:generate --workspace @fintech/api
       - run: npm run db:migrate --workspace @fintech/api
       - run: npm run lint
-      - run: npm run test
+      - run: npm run test:all
       - run: npm run build

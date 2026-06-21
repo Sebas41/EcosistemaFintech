@@ -15,6 +15,18 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: "./src/test.setup.ts"
+    setupFiles: "./src/test.setup.ts",
+    coverage: {
+      enabled: true,
+      reporter: ["text", "lcov", "html"],
+      include: ["src/**"],
+      exclude: ["src/main.tsx", "src/styles.css", "src/vite-env.d.ts"],
+      thresholds: {
+        statements: 65,
+        branches: 50,
+        functions: 50,
+        lines: 65
+      }
+    }
   }
 });

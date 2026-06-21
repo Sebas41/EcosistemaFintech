@@ -16,6 +16,18 @@ export default defineConfig({
       CORS_ORIGIN: "http://localhost:5173",
       PORT: "4000",
       NODE_ENV: "test"
+    },
+    coverage: {
+      enabled: true,
+      reporter: ["text", "lcov", "html"],
+      include: ["src/**"],
+      exclude: ["src/server.ts"],
+      thresholds: {
+        statements: 85,
+        branches: 65,
+        functions: 90,
+        lines: 85
+      }
     }
   }
 });

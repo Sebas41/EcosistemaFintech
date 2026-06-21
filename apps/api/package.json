@@ -10,7 +10,7 @@
     "lint": "eslint . --ext .ts",
     "test": "vitest run --exclude '**/*.integration.test.ts'",
     "test:integration": "vitest run --include '**/*.integration.test.ts'",
-    "test:all": "vitest run",
+    "test:all": "vitest run --coverage",
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",

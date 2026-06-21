@@ -23,7 +23,7 @@ jobs:
           node-version: 24.16.0
           cache: npm
 
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           config-file: .github/codeql-config.yml
@@ -31,4 +31,4 @@ jobs:
       - run: npm ci
       - run: npm run build --if-present
 
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4

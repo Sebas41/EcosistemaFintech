@@ -22,4 +22,4 @@ COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/api/prisma apps/api/prisma
 
 EXPOSE 4000
-CMD ["sh", "-c", "npm run db:migrate --workspace @fintech/api && npm run db:seed --workspace @fintech/api && npm start --workspace @fintech/api"]
+CMD ["sh", "-c", "for i in $(seq 1 30); do nc -z db 5432 && break; echo 'Waiting for DB...'; sleep 1; done && npm run db:migrate --workspace @fintech/api && npm run db:seed --workspace @fintech/api && npm start --workspace @fintech/api"]

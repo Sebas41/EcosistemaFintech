@@ -29,12 +29,21 @@ export function signSession(user: AuthUser) {
   });
 }
 
+function parseExpiresIn(value: string): number {
+  const match = value.match(/^(\d+)\s*(s|m|h|d)$/);
+  if (!match) return 1000 * 60 * 60 * 2;
+  const n = parseInt(match[1]!, 10);
+  const unit = match[2]!;
+  const multipliers: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+  return n * (multipliers[unit] ?? 3600000);
+}
+
 export function sessionCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
     secure: config.COOKIE_SECURE,
-    maxAge: 1000 * 60 * 60 * 2
+    maxAge: parseExpiresIn(config.JWT_EXPIRES_IN ?? "2h")
   };
 }
 

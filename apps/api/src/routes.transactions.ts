@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { requireAuth, type AuthenticatedRequest } from "./auth.js";
 import { getBudgetAlert } from "./budget.js";
 import { asyncHandler, AppError, notFound } from "./errors.js";
@@ -77,9 +77,9 @@ transactionsRouter.get(
 
     for (const row of grouped) {
       if (row.type === "INCOME") {
-        totals.income = toMoney(row._sum.amount ?? new Prisma.Decimal(0));
+        totals.income = toMoney(row._sum.amount ?? 0);
       } else {
-        totals.expense = toMoney(row._sum.amount ?? new Prisma.Decimal(0));
+        totals.expense = toMoney(row._sum.amount ?? 0);
       }
     }
 

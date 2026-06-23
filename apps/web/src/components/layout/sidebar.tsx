@@ -1,12 +1,12 @@
-import { BarChart3, CreditCard, LayoutDashboard, Wallet, PiggyBank, LogOut } from "lucide-react";
+import { BarChart3, CreditCard, LayoutDashboard, LogOut, PiggyBank, Wallet } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "transactions", label: "Transacciones", icon: CreditCard },
-  { id: "categories", label: "Categorías", icon: Wallet },
-  { id: "analytics", label: "Analíticas", icon: BarChart3 },
-  { id: "savings", label: "Ahorros", icon: PiggyBank },
+  { id: "categories", label: "Categorias", icon: Wallet },
+  { id: "analytics", label: "Analiticas", icon: BarChart3 },
+  { id: "savings", label: "Ahorros", icon: PiggyBank }
 ];
 
 type SidebarProps = {
@@ -55,7 +55,7 @@ export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
           className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-indigo-200/60 transition-all duration-150 hover:bg-[#1e293b] hover:text-indigo-200"
         >
           <LogOut size={18} />
-          Cerrar sesión
+          Cerrar sesion
         </button>
       </div>
     </aside>

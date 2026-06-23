@@ -72,12 +72,24 @@ export function AnalyticsSection({ transactions, categories }: AnalyticsSectionP
       .filter((c) => c.limit > 0);
   }, [categories, transactions]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  type TooltipPayload = {
+    color?: string;
+    name?: string;
+    value: number;
+  };
+
+  type TooltipProps = {
+    active?: boolean;
+    payload?: TooltipPayload[];
+    label?: string;
+  };
+
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     if (active && payload?.length) {
       return (
         <div className="rounded-xl border border-indigo-100 bg-white px-4 py-3 shadow-lg">
           <p className="mb-1 text-[12px] font-medium text-gray-500">{label}</p>
-          {payload.map((p: any, i: number) => (
+          {payload.map((p, i) => (
             <p key={i} className="text-[13px] font-semibold" style={{ color: p.color }}>
               {p.name}: {new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(p.value)}
             </p>

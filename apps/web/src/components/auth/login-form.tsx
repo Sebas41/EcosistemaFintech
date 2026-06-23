@@ -1,23 +1,29 @@
 import { useState, type FormEvent } from "react";
-import { Wallet, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Wallet } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>;
+  onRegister: (email: string, password: string) => Promise<void>;
   error: string | null;
 };
 
-export function LoginForm({ onLogin, error }: LoginFormProps) {
+export function LoginForm({ onLogin, onRegister, error }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onLogin(email, password);
+      if (mode === "login") {
+        await onLogin(email, password);
+      } else {
+        await onRegister(email, password);
+      }
     } finally {
       setLoading(false);
     }
@@ -31,7 +37,9 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
             <Wallet size={24} className="text-white" />
           </div>
           <h1 className="text-[22px] font-bold tracking-tight text-gray-900">Fintech</h1>
-          <p className="mt-1 text-[14px] text-gray-500">Accede a tu panel financiero</p>
+          <p className="mt-1 text-[14px] text-gray-500">
+            {mode === "login" ? "Accede a tu panel financiero" : "Crea tu cuenta financiera"}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-[16px] border border-indigo-100/60 bg-white p-8 shadow-lg shadow-indigo-500/5">
@@ -42,7 +50,7 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
           )}
 
           <div className="mb-5">
-            <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Correo electrónico</label>
+            <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Correo electronico</label>
             <input
               type="email"
               value={email}
@@ -54,13 +62,13 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
           </div>
 
           <div className="mb-6">
-            <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Contraseña</label>
+            <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Contrasena</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Password123!"
                 required
                 className="h-11 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 pl-4 pr-11 text-[14px] text-gray-700 placeholder:text-gray-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
               />
@@ -82,12 +90,20 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
               loading && "cursor-not-allowed opacity-70"
             )}
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : "Iniciar sesión"}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : mode === "login" ? "Iniciar sesion" : "Crear cuenta"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMode(mode === "login" ? "register" : "login")}
+            className="mt-4 w-full text-center text-[13px] font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            {mode === "login" ? "Crear una cuenta" : "Ya tengo cuenta"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-[12px] text-gray-400">
-          Demo: usa cualquier correo y "password" como contraseña
+          Demo: demo@fintech.local / Password123!
         </p>
       </div>
     </div>

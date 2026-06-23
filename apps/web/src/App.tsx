@@ -1,490 +1,328 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Edit2, LogOut, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import { api, type BudgetAlert, type Category, type Summary, type Transaction, type User } from "./api/client";
-import { BudgetBadge } from "./components/BudgetBadge";
-import "./styles.css";
-
-const money = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0
-});
+import { Plus, X } from "lucide-react";
+import { api, type Category, type Summary, type Transaction, type User } from "./api/client";
+import { LoginForm } from "./components/auth/login-form";
+import { DashboardLayout } from "./components/layout/dashboard-layout";
+import { KpiCards } from "./components/dashboard/kpi-cards";
+import { AnalyticsSection } from "./components/dashboard/analytics-section";
+import { TransactionTable, type TransactionFilters } from "./components/transactions/transaction-table";
+import { CategoryCards } from "./components/categories/category-cards";
+import "./index.css";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const defaultTxForm = {
+  type: "EXPENSE" as "INCOME" | "EXPENSE",
+  amount: 50000,
+  description: "",
+  categoryId: "",
+  date: today()
+};
+
+const defaultFilters: TransactionFilters = {
+  page: 1,
+  pageSize: 8,
+  sort: "desc",
+  type: "all",
+  categoryId: "all",
+  from: "",
+  to: ""
+};
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("demo@fintech.local");
-  const [password, setPassword] = useState("Password123!");
+  const [authError, setAuthError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionTotal, setTransactionTotal] = useState(0);
   const [summary, setSummary] = useState<Summary>({ totalIncome: 0, totalExpense: 0, balance: 0 });
+  const [activeView, setActiveView] = useState("dashboard");
   const [message, setMessage] = useState("");
-  const [alert, setAlert] = useState<BudgetAlert | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalTransactions, setTotalTransactions] = useState(0);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
-  const [filters, setFilters] = useState({ type: "", categoryId: "", from: "", to: "", sort: "desc" });
-  const [categoryForm, setCategoryForm] = useState({ name: "", monthlyBudget: 100000 });
-  const [transactionForm, setTransactionForm] = useState({
-    type: "EXPENSE" as Transaction["type"],
-    amount: 50000,
-    description: "",
-    categoryId: "",
-    date: today()
-  });
+  const [filters, setFilters] = useState<TransactionFilters>(defaultFilters);
 
-  const categoryById = useMemo(
-    () => new Map(categories.map((category) => [category.id, category])),
-    [categories]
-  );
+  const [showTxModal, setShowTxModal] = useState(false);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  const [txForm, setTxForm] = useState(defaultTxForm);
 
-  async function loadData() {
-    const params = new URLSearchParams();
-    if (filters.type) params.set("type", filters.type);
-    if (filters.categoryId) params.set("categoryId", filters.categoryId);
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [catForm, setCatForm] = useState({ name: "", monthlyBudget: 100000 });
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+
+  const transactionQuery = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(filters.page),
+      pageSize: String(filters.pageSize),
+      sort: filters.sort
+    });
+    if (filters.type !== "all") params.set("type", filters.type);
+    if (filters.categoryId !== "all") params.set("categoryId", filters.categoryId);
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
-    params.set("sort", filters.sort);
-    params.set("page", String(page));
-    params.set("pageSize", "10");
+    return `?${params.toString()}`;
+  }, [filters]);
 
-    const [categoryResponse, transactionResponse, summaryResponse] = await Promise.all([
+  async function loadData() {
+    const [catRes, txRes, sumRes] = await Promise.all([
       api.categoryStatus(),
-      api.transactions(`?${params.toString()}`),
+      api.transactions(transactionQuery),
       api.summary()
     ]);
-
-    setCategories(categoryResponse.data);
-    setTransactions(transactionResponse.data);
-    setTotalTransactions(transactionResponse.meta.total);
-    setSummary(summaryResponse.data);
-
-    if (!transactionForm.categoryId && categoryResponse.data[0]) {
-      setTransactionForm((current) => ({ ...current, categoryId: categoryResponse.data[0].id }));
+    setCategories(catRes.data);
+    setTransactions(txRes.data);
+    setTransactionTotal(txRes.meta.total);
+    setSummary(sumRes.data);
+    if (!txForm.categoryId && catRes.data[0]) {
+      setTxForm((prev) => ({ ...prev, categoryId: catRes.data[0].id }));
     }
   }
 
   useEffect(() => {
-    api
-      .me()
-      .then(({ user: currentUser }) => setUser(currentUser))
-      .catch(() => undefined);
+    api.me().then(({ user: u }) => setUser(u)).catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    if (user) {
-      loadData().catch((error: Error) => setMessage(error.message));
-    }
-  }, [user, filters, page]);
+    if (user) loadData().catch((err: Error) => setMessage(err.message));
+  }, [user, transactionQuery]);
 
-  async function handleAuth(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-    const response =
-      authMode === "login" ? await api.login(email, password) : await api.register(email, password);
-    setUser(response.user);
+  async function handleLogin(email: string, password: string) {
+    setAuthError(null);
+    try {
+      const { user: u } = await api.login(email, password);
+      setUser(u);
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : "No se pudo iniciar sesion");
+    }
+  }
+
+  async function handleRegister(email: string, password: string) {
+    setAuthError(null);
+    try {
+      const { user: u } = await api.register(email, password);
+      setUser(u);
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : "No se pudo crear la cuenta");
+    }
   }
 
   async function handleLogout() {
     await api.logout();
     setUser(null);
-    setTransactions([]);
     setCategories([]);
+    setTransactions([]);
+    setTransactionTotal(0);
   }
 
-  async function createCategory(event: FormEvent) {
-    event.preventDefault();
+  async function handleSaveTransaction(e: FormEvent) {
+    e.preventDefault();
     setMessage("");
-    if (editingCategoryId) {
-      await api.updateCategory(editingCategoryId, categoryForm);
+    if (editingTxId) {
+      await api.updateTransaction(editingTxId, txForm);
     } else {
-      await api.createCategory(categoryForm);
+      await api.createTransaction(txForm);
     }
-    setEditingCategoryId(null);
-    setCategoryForm({ name: "", monthlyBudget: 100000 });
+    setShowTxModal(false);
+    setEditingTxId(null);
+    setTxForm((prev) => ({ ...defaultTxForm, categoryId: prev.categoryId || categories[0]?.id || "" }));
     await loadData();
   }
 
-  async function createTransaction(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-    setAlert(null);
-    const response = editingTransactionId
-      ? await api.updateTransaction(editingTransactionId, transactionForm)
-      : await api.createTransaction(transactionForm);
-    setAlert(response.budgetAlert);
-    setEditingTransactionId(null);
-    setTransactionForm((current) => ({ ...current, description: "", amount: 50000 }));
+  async function handleDeleteTransaction(id: string) {
+    await api.deleteTransaction(id);
     await loadData();
   }
 
-  function editCategory(category: Category) {
-    setEditingCategoryId(category.id);
-    setCategoryForm({ name: category.name, monthlyBudget: category.monthlyBudget });
-  }
-
-  function cancelCategoryEdit() {
-    setEditingCategoryId(null);
-    setCategoryForm({ name: "", monthlyBudget: 100000 });
-  }
-
-  function editTransaction(transaction: Transaction) {
-    setEditingTransactionId(transaction.id);
-    setTransactionForm({
+  function openEditTransaction(transaction: Transaction) {
+    setEditingTxId(transaction.id);
+    setTxForm({
       type: transaction.type,
       amount: transaction.amount,
       description: transaction.description,
       categoryId: transaction.categoryId,
       date: transaction.date.slice(0, 10)
     });
+    setShowTxModal(true);
   }
 
-  function cancelTransactionEdit() {
-    setEditingTransactionId(null);
-    setTransactionForm((current) => ({
-      ...current,
-      type: "EXPENSE",
-      amount: 50000,
-      description: "",
-      date: today()
-    }));
-  }
-
-  async function removeTransaction(id: string) {
-    await api.deleteTransaction(id);
+  async function handleSaveCategory(e: FormEvent) {
+    e.preventDefault();
+    setMessage("");
+    if (editingCatId) {
+      await api.updateCategory(editingCatId, catForm);
+    } else {
+      await api.createCategory(catForm);
+    }
+    setShowCatModal(false);
+    setEditingCatId(null);
+    setCatForm({ name: "", monthlyBudget: 100000 });
     await loadData();
   }
 
-  async function removeCategory(id: string) {
+  async function handleDeleteCategory(id: string) {
     await api.deleteCategory(id);
     await loadData();
   }
 
+  function openEditCategory(cat: Category) {
+    setEditingCatId(cat.id);
+    setCatForm({ name: cat.name, monthlyBudget: cat.monthlyBudget });
+    setShowCatModal(true);
+  }
+
+  function openNewCategory() {
+    setEditingCatId(null);
+    setCatForm({ name: "", monthlyBudget: 100000 });
+    setShowCatModal(true);
+  }
+
+  function openNewTransaction() {
+    setEditingTxId(null);
+    setTxForm({ ...defaultTxForm, categoryId: categories[0]?.id ?? "" });
+    setShowTxModal(true);
+  }
+
+  function viewTitle() {
+    const titles: Record<string, string> = {
+      dashboard: "Dashboard",
+      transactions: "Transacciones",
+      categories: "Categorias",
+      analytics: "Analiticas",
+      savings: "Ahorros"
+    };
+    return titles[activeView] ?? "Dashboard";
+  }
+
   if (!user) {
-    return (
-      <main className="auth-shell">
-        <form className="auth-panel" onSubmit={handleAuth}>
-          <h1>Finanzas personales</h1>
-          <p>Acceso seguro al módulo de movimientos y presupuestos.</p>
-          <label>
-            Correo
-            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
-          </label>
-          <label>
-            Contraseña
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              minLength={10}
-            />
-          </label>
-          <button type="submit">{authMode === "login" ? "Iniciar sesión" : "Crear cuenta"}</button>
-          <button
-            className="link-button"
-            type="button"
-            onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-          >
-            {authMode === "login" ? "Registrar nuevo usuario" : "Usar una cuenta existente"}
-          </button>
-          {message && <p className="error">{message}</p>}
-        </form>
-      </main>
-    );
+    return <LoginForm onLogin={handleLogin} onRegister={handleRegister} error={authError} />;
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <h1>Movimientos financieros</h1>
-          <span>{user.email}</span>
-        </div>
-        <button className="icon-button" type="button" onClick={handleLogout} title="Cerrar sesión">
-          <LogOut size={18} />
-        </button>
-      </header>
-
-      <section className="summary-grid">
-        <div>
-          <span>Ingresos</span>
-          <strong>{money.format(summary.totalIncome)}</strong>
-        </div>
-        <div>
-          <span>Egresos</span>
-          <strong>{money.format(summary.totalExpense)}</strong>
-        </div>
-        <div>
-          <span>Balance</span>
-          <strong>{money.format(summary.balance)}</strong>
-        </div>
-      </section>
-
-      {alert && (
-        <section className={`alert ${alert.level === "OVER_100" ? "danger" : "warning"}`}>
-          {alert.categoryName}: {alert.usagePercent}% usado ({money.format(alert.spent)} de{" "}
-          {money.format(alert.monthlyBudget)})
-        </section>
+    <DashboardLayout active={activeView} title={viewTitle()} userEmail={user.email} onNavigate={setActiveView} onLogout={handleLogout}>
+      {message && (
+        <div className="mb-6 rounded-xl bg-amber-50 px-5 py-3 text-[13px] font-medium text-amber-700">{message}</div>
       )}
 
-      <section className="workbench">
-        <form className="panel" onSubmit={createTransaction}>
-          <div className="section-title">
-            <h2>{editingTransactionId ? "Editar movimiento" : "Nuevo movimiento"}</h2>
-            {editingTransactionId && (
-              <button className="icon-button" type="button" onClick={cancelTransactionEdit} title="Cancelar edición">
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <div className="two-columns">
-            <label>
-              Tipo
-              <select
-                value={transactionForm.type}
-                onChange={(event) =>
-                  setTransactionForm((current) => ({
-                    ...current,
-                    type: event.target.value as Transaction["type"]
-                  }))
-                }
-              >
-                <option value="EXPENSE">Egreso</option>
-                <option value="INCOME">Ingreso</option>
-              </select>
-            </label>
-            <label>
-              Valor
-              <input
-                type="number"
-                min="1"
-                value={transactionForm.amount}
-                onChange={(event) =>
-                  setTransactionForm((current) => ({ ...current, amount: Number(event.target.value) }))
-                }
-              />
-            </label>
-          </div>
-          <label>
-            Categoría
-            <select
-              value={transactionForm.categoryId}
-              onChange={(event) =>
-                setTransactionForm((current) => ({ ...current, categoryId: event.target.value }))
-              }
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Descripción
-            <input
-              value={transactionForm.description}
-              onChange={(event) =>
-                setTransactionForm((current) => ({ ...current, description: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Fecha
-            <input
-              type="date"
-              value={transactionForm.date}
-              onChange={(event) =>
-                setTransactionForm((current) => ({ ...current, date: event.target.value }))
-              }
-            />
-          </label>
-          <button type="submit">
-            {editingTransactionId ? <Save size={16} /> : <Plus size={16} />}
-            {editingTransactionId ? "Actualizar" : "Guardar"}
-          </button>
-        </form>
-
-        <form className="panel" onSubmit={createCategory}>
-          <div className="section-title">
-            <h2>{editingCategoryId ? "Editar categoría" : "Categorías"}</h2>
-            {editingCategoryId && (
-              <button className="icon-button" type="button" onClick={cancelCategoryEdit} title="Cancelar edición">
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <div className="two-columns">
-            <label>
-              Nombre
-              <input
-                value={categoryForm.name}
-                onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-              />
-            </label>
-            <label>
-              Presupuesto
-              <input
-                type="number"
-                min="1"
-                value={categoryForm.monthlyBudget}
-                onChange={(event) =>
-                  setCategoryForm((current) => ({
-                    ...current,
-                    monthlyBudget: Number(event.target.value)
-                  }))
-                }
-              />
-            </label>
-          </div>
-          <button type="submit">
-            {editingCategoryId ? <Save size={16} /> : <Plus size={16} />}
-            {editingCategoryId ? "Actualizar categoría" : "Crear categoría"}
-          </button>
-          <div className="category-list">
-            {categories.map((category) => (
-              <div key={category.id} className="category-row">
-                <div>
-                  <strong>{category.name}</strong>
-                  <span>
-                    {money.format(category.spent ?? 0)} / {money.format(category.monthlyBudget)}
-                  </span>
-                </div>
-                <BudgetBadge category={category} />
-                <button
-                  className="icon-button"
-                  type="button"
-                  onClick={() => editCategory(category)}
-                  title="Editar categoría"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  className="icon-button"
-                  type="button"
-                  onClick={() => removeCategory(category.id)}
-                  title="Eliminar categoría"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </form>
-      </section>
-
-      <section className="panel transactions-panel">
-        <div className="section-title">
-          <h2>Historial</h2>
-          <button className="icon-button" type="button" onClick={loadData} title="Actualizar">
-            <RefreshCw size={16} />
-          </button>
+      {activeView === "dashboard" && (
+        <div className="space-y-8">
+          <KpiCards summary={summary} />
+          <AnalyticsSection transactions={transactions} categories={categories} />
         </div>
-        <div className="filters">
-          <select
-            value={filters.type}
-            onChange={(event) => {
-              setPage(1);
-              setFilters((current) => ({ ...current, type: event.target.value }));
-            }}
-          >
-            <option value="">Todos</option>
-            <option value="EXPENSE">Egresos</option>
-            <option value="INCOME">Ingresos</option>
-          </select>
-          <select
-            value={filters.categoryId}
-            onChange={(event) => {
-              setPage(1);
-              setFilters((current) => ({ ...current, categoryId: event.target.value }));
-            }}
-          >
-            <option value="">Todas las categorías</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={filters.from}
-            onChange={(event) => {
-              setPage(1);
-              setFilters((current) => ({ ...current, from: event.target.value }));
-            }}
+      )}
+
+      {activeView === "transactions" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <p className="text-[14px] text-gray-500">{transactionTotal} transacciones registradas</p>
+            <button onClick={openNewTransaction} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-150 hover:from-indigo-500 hover:to-purple-500">
+              <Plus size={16} />
+              Nueva transaccion
+            </button>
+          </div>
+          <TransactionTable
+            transactions={transactions}
+            categories={categories}
+            filters={filters}
+            total={transactionTotal}
+            onFiltersChange={setFilters}
+            onEdit={openEditTransaction}
+            onDelete={handleDeleteTransaction}
           />
-          <input
-            type="date"
-            value={filters.to}
-            onChange={(event) => {
-              setPage(1);
-              setFilters((current) => ({ ...current, to: event.target.value }));
-            }}
-          />
-          <select
-            value={filters.sort}
-            onChange={(event) => {
-              setPage(1);
-              setFilters((current) => ({ ...current, sort: event.target.value }));
-            }}
-          >
-            <option value="desc">Más recientes</option>
-            <option value="asc">Más antiguos</option>
-          </select>
         </div>
-        <div className="table">
-          {transactions.map((transaction) => (
-            <div key={transaction.id} className="transaction-row">
-              <span>{new Date(transaction.date).toLocaleDateString("es-CO")}</span>
-              <strong>{transaction.description}</strong>
-              <span>{categoryById.get(transaction.categoryId)?.name ?? "Sin categoría"}</span>
-              <span className={transaction.type === "INCOME" ? "income" : "expense"}>
-                {transaction.type === "INCOME" ? "+" : "-"}
-                {money.format(transaction.amount)}
-              </span>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={() => editTransaction(transaction)}
-                title="Editar movimiento"
-              >
-                <Edit2 size={16} />
-              </button>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={() => removeTransaction(transaction.id)}
-                title="Eliminar movimiento"
-              >
-                <Trash2 size={16} />
+      )}
+
+      {activeView === "categories" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <p className="text-[14px] text-gray-500">{categories.length} categorias configuradas</p>
+            <button onClick={openNewCategory} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-150 hover:from-indigo-500 hover:to-purple-500">
+              <Plus size={16} />
+              Nueva categoria
+            </button>
+          </div>
+          <CategoryCards categories={categories} transactions={transactions} onEdit={openEditCategory} onDelete={handleDeleteCategory} />
+        </div>
+      )}
+
+      {activeView === "analytics" && <AnalyticsSection transactions={transactions} categories={categories} />}
+
+      {activeView === "savings" && (
+        <div className="flex h-64 items-center justify-center rounded-[16px] border border-indigo-100/50 bg-white shadow-sm">
+          <p className="text-[15px] text-gray-400">Proximamente: seccion de ahorros</p>
+        </div>
+      )}
+
+      {showTxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm" onClick={() => { setShowTxModal(false); setEditingTxId(null); }}>
+          <div className="w-full max-w-md rounded-[16px] border border-indigo-100/60 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-[17px] font-semibold text-gray-900">{editingTxId ? "Editar transaccion" : "Nueva transaccion"}</h2>
+              <button onClick={() => { setShowTxModal(false); setEditingTxId(null); }} aria-label="Cerrar" className="rounded-lg p-1.5 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
+                <X size={18} />
               </button>
             </div>
-          ))}
-          {transactions.length === 0 && <p className="empty">No hay movimientos para los filtros actuales.</p>}
+            <form onSubmit={handleSaveTransaction} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Tipo</label>
+                  <select value={txForm.type} onChange={(e) => setTxForm((prev) => ({ ...prev, type: e.target.value as "INCOME" | "EXPENSE" }))} className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20">
+                    <option value="EXPENSE">Gasto</option>
+                    <option value="INCOME">Ingreso</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Valor</label>
+                  <input type="number" min="1" value={txForm.amount} onChange={(e) => setTxForm((prev) => ({ ...prev, amount: Number(e.target.value) }))} className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Categoria</label>
+                <select value={txForm.categoryId} onChange={(e) => setTxForm((prev) => ({ ...prev, categoryId: e.target.value }))} className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20">
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Descripcion</label>
+                <input value={txForm.description} onChange={(e) => setTxForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Fecha</label>
+                <input type="date" value={txForm.date} onChange={(e) => setTxForm((prev) => ({ ...prev, date: e.target.value }))} className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20" />
+              </div>
+              <button type="submit" className="flex h-10 w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-[13px] font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-150 hover:from-indigo-500 hover:to-purple-500">
+                {editingTxId ? "Actualizar transaccion" : "Guardar transaccion"}
+              </button>
+            </form>
+          </div>
         </div>
-        <div className="pagination">
-          <button type="button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}>
-            Anterior
-          </button>
-          <span>
-            Página {page} de {Math.max(1, Math.ceil(totalTransactions / 10))}
-          </span>
-          <button
-            type="button"
-            disabled={page >= Math.ceil(totalTransactions / 10)}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            Siguiente
-          </button>
+      )}
+
+      {showCatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm" onClick={() => { setShowCatModal(false); setEditingCatId(null); }}>
+          <div className="w-full max-w-md rounded-[16px] border border-indigo-100/60 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-[17px] font-semibold text-gray-900">{editingCatId ? "Editar categoria" : "Nueva categoria"}</h2>
+              <button onClick={() => { setShowCatModal(false); setEditingCatId(null); }} className="rounded-lg p-1.5 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveCategory} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Nombre</label>
+                <input value={catForm.name} onChange={(e) => setCatForm((prev) => ({ ...prev, name: e.target.value }))} required className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium text-gray-600">Presupuesto mensual</label>
+                <input type="number" min="1" value={catForm.monthlyBudget} onChange={(e) => setCatForm((prev) => ({ ...prev, monthlyBudget: Number(e.target.value) }))} className="h-10 w-full rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 text-[13px] text-gray-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20" />
+              </div>
+              <button type="submit" className="flex h-10 w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-[13px] font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-150 hover:from-indigo-500 hover:to-purple-500">
+                {editingCatId ? "Actualizar categoria" : "Crear categoria"}
+              </button>
+            </form>
+          </div>
         </div>
-      </section>
-    </main>
+      )}
+    </DashboardLayout>
   );
 }
 

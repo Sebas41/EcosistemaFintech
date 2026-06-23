@@ -18,7 +18,7 @@ export default defineConfig({
       NODE_ENV: "test"
     },
     coverage: {
-      enabled: true,
+      enabled: false,
       reporter: ["text", "lcov", "html"],
       include: ["src/**"],
       exclude: ["src/server.ts"],

@@ -1,0 +1,378 @@
+================================================================================
+ CONTEXT SNAPSHOT — Fintech Personal Finance
+ Date: 2026-06-22
+ Last update: Reverted SQLite → PostgreSQL for Docker Compose compatibility
+================================================================================
+
+================================================================================
+ 1. PROJECT OVERVIEW
+================================================================================
+
+Full-stack fintech MVP monorepo for managing personal finances:
+transactions, categories with monthly budgets, and analytics dashboard.
+
+- Backend: Express 5, TypeScript, Prisma 6, PostgreSQL (Docker Compose / CI)
+- Frontend: React 18, Vite 8, Tailwind CSS 4, Recharts 2, Lucide React
+- Testing: Vitest, @testing-library/react, jsdom, coverage thresholds
+- CI/CD: GitHub Actions (lint, test:all, build), Codecov, CodeQL, Dependabot, Docker
+- Auth: JWT in httpOnly cookie, bcrypt password hashing
+
+================================================================================
+ 2. GIT HISTORY (14 commits)
+================================================================================
+
+b12eaa1 scaffold fintech monorepo
+5981b92 feat: implement authenticated finance api
+5434eb5 feat: add finance dashboard web app
+060f5cc chore: add deployment ci and documentation
+a7adec8 chore: ignore generated TypeScript artifacts
+6ca6d00 Add tests, CI/CD pipeline, frontend components, and project documentation
+138da95 ci(api): add coverage thresholds to vitest configs
+80435e1 ci: add CodeQL security analysis workflow
+8d0c5d8 ci: add Codecov coverage upload to CI pipeline
+9a145d6 ci: add Docker build verification workflow
+c599d41 ci: add Dependabot config and weekly dependency audit
+9fd999b fix: derive cookie maxAge from JWT_EXPIRES_IN and pin dependency versions
+5427840 fix: add DNS resolver to nginx proxy config
+4df4972 fix: add database wait loop to API Dockerfile CMD
+
+4df4972 fix: add database wait loop to API Dockerfile CMD
+8e100de feat(api): migrate from PostgreSQL to SQLite for local development without Docker
+b87af27 feat(web): redesign UI with Tailwind CSS 4, sidebar layout, charts, and blue/purple theme
+2207c9b test(web): rewrite 31 tests with waitFor pattern for login flow and modal CRUD
+be55f3a docs: add DESIGN.md with architecture decisions and context snapshot
+b48f37a revert(api): restore PostgreSQL schema and revert SQLite migration
+
+All CI/CD pipelines pre-configured: ci.yml, codeql.yml, docker.yml, audit.yml
+
+================================================================================
+ 3. ARCHITECTURE
+================================================================================
+
+apps/
+  api/     — Express REST API (port 4000)
+    prisma/
+      schema.prisma        — SQLite (local) / PostgreSQL (Docker)
+      seed.ts               — demo user + categories + transactions
+      migrations/           — generated migration files
+    src/
+      server.ts             — entry point
+      app.ts                — Express app factory
+      config.ts             — env-based config
+      prisma.ts             — Prisma client singleton
+      auth.ts               — JWT auth middleware
+      errors.ts             — error handling utilities
+      validation.ts         — Zod schemas
+      mappers.ts            — DB→JSON mappers (toMoney = identity for SQLite)
+      budget.ts             — budget alert computation
+      routes.auth.ts        — /api/auth/* (register, login, logout, me)
+      routes.transactions.ts — /api/transactions/* (CRUD + summary)
+      routes.categories.ts  — /api/categories/* (CRUD + status)
+  web/     — React SPA (port 5173)
+    src/
+      main.tsx              — ReactDOM entry
+      App.tsx               — root component: auth → dashboard with modals
+      App.test.tsx          — 31 tests (login flow, CRUD, navigation, coverage)
+      index.css             — Tailwind 4 @theme with blue/indigo/purple palette
+      test.setup.ts         — jest-dom matchers + ResizeObserver polyfill
+      api/
+        client.ts           — typed fetch wrapper with all endpoints
+      lib/
+        utils.ts            — cn() utility (clsx + tailwind-merge)
+      components/
+        auth/
+          login-form.tsx    — login form (lacks registration toggle)
+        layout/
+          sidebar.tsx       — dark gradient sidebar with nav items
+          navbar.tsx        — glassmorphism top bar with search + user
+          dashboard-layout.tsx — sidebar + navbar + children wrapper
+        dashboard/
+          kpi-cards.tsx      — 3 KPI cards (Income, Expense, Balance)
+          analytics-section.tsx — bar/pie/budget charts via recharts
+        transactions/
+          transaction-table.tsx — search, type/category filter, sort, pagination
+        categories/
+          category-cards.tsx — budget progress cards (no edit/delete buttons)
+
+================================================================================
+ 4. CURRENT STATE — WHAT WORKS AND IS CORRECT
+================================================================================
+
+=== 4.1 AUTHENTICATION ===
+- Login with email/password via POST /api/auth/login
+- Session in httpOnly JWT cookie
+- /api/auth/me endpoint to restore session on refresh
+- Logout clears cookie
+- Auto-redirect to login if not authenticated
+- Password show/hide toggle (eye icon)
+- Loading spinner on login button
+- Error message display on failed login
+- API supports register (POST /api/auth/register) — not wired in frontend
+
+=== 4.2 DASHBOARD (5 views via sidebar navigation) ===
+- Dashboard: KPI cards + analytics charts
+- Transacciones: create button + filtered/paginated table
+- Categorías: create button + budget progress cards
+- Analíticas: charts (same as dashboard)
+- Ahorros: placeholder "Próximamente"
+
+=== 4.3 LAYOUT ===
+- Dark gradient sidebar (#0f172a → #1e1b4b) with indigo-500/purple-600 accents
+- Glassmorphism navbar (bg-white/80 backdrop-blur-xl)
+- 64px sidebar offset (pl-64) for main content
+- Fixed sidebar, sticky navbar
+
+=== 4.4 KPI CARDS ===
+- 3 cards: Income (green), Expense (red), Balance (indigo)
+- Format: Colombian Pesos (COP), no decimals
+- Trend badges (mock percentages)
+- Hover shadow effect
+
+=== 4.5 ANALYTICS CHARTS ===
+- Monthly Cash Flow: bar chart, 6 months, indigo (income) / red (expense)
+- Expenses by Category: donut pie chart, 8 colors
+- Budget Usage: horizontal bar chart, gradient bar colors (indigo → amber → red)
+- Custom tooltip with currency formatting
+- Responsive via Recharts ResponsiveContainer
+- ResizeObserver polyfill in test.setup.ts for jsdom compatibility
+
+=== 4.6 TRANSACTION TABLE ===
+- Search input (filters by description or category name)
+- Type filter dropdown (Todos / Ingresos / Gastos)
+- Category filter dropdown
+- Sortable date column (asc/desc toggle with ArrowUpDown icon)
+- Pagination (8 per page, ChevronLeft/ChevronRight)
+- Row display: date, description (with type icon), category badge, amount
+- Delete button per row (Trash2 icon)
+- Empty state message
+- Type icons: green ArrowUpRight (income), red ArrowDownRight (expense)
+- Category badges: indigo rounded bg
+
+=== 4.7 CATEGORY CARDS ===
+- Grid of cards with: name, status badge, spent amount, budget limit
+- Progress bar with dynamic color (indigo < 50%, blue < 80%, amber < 100%, red 100%)
+- Spent computed from filtered transactions (client-side)
+- Remaining budget display
+
+=== 4.8 MODALS ===
+- New Transaction modal: type select, amount, category, description, date
+- New/Edit Category modal: name, monthly budget
+- Backdrop blur + click-to-close (on backdrop)
+- Close button (X) with aria-label="Cerrar"
+- Gradient buttons (from-indigo-600 to-purple-600) with shadow
+- Edit Category: openEditCategory() via App.tsx (wired but no button on cards)
+
+=== 4.9 TESTS (31 passing, coverage thresholds met) ===
+- statements: 65%, branches: 50%, functions: 50%, lines: 65%
+- vitest + jsdom + @testing-library/react + userEvent
+- Mocked api module (vi.hoisted + vi.mock)
+- Tests: login form render, error display, login flow, summary display,
+  sidebar nav, navigation to categories, logout flow,
+  create transaction via modal, close modal
+- All use waitFor(() => expect(...), { timeout: 15000 }) pattern
+- ResizeObserver polyfill for recharts in jsdom
+
+=== 4.10 INFRASTRUCTURE (pre-existing in git) ===
+- .github/workflows/ci.yml — install, prisma generate, migrate, lint, test:all, build
+- .github/workflows/codeql.yml — weekly CodeQL analysis
+- .github/workflows/docker.yml — Docker build verification
+- .github/workflows/audit.yml — weekly npm audit
+- .github/dependabot.yml — weekly dependency updates
+- docker-compose.yml — PostgreSQL 16, API, web (nginx)
+- apps/api/Dockerfile — multi-stage with wait loop for DB
+- apps/web/Dockerfile + nginx.conf
+- apps/web/nginx.conf — reverse proxy /api to API backend
+
+=== 4.11 README.md (pre-existing) ===
+- Stack, quick start, functionality, security architecture
+- AI Usage section (Codex, examples)
+- API endpoints listed
+- Deployment section (pending)
+
+=== 4.12 DESIGN.md (empty — needs content) ===
+
+================================================================================
+ 5. WHAT'S MISSING (features lost in the rewrite from original single-page app)
+================================================================================
+
+[ ] Registration toggle — LoginForm only has login; needs "Registrar nuevo
+    usuario" link to switch to register mode (api.register is already in
+    client.ts and App.tsx handleLogin could accept a mode param)
+
+[ ] Edit transaction button — TransactionTable rows have delete only; need
+    an edit button (Edit2 icon) that opens the modal in edit mode
+    (App.tsx has editingTransactionId state concept but no modal wiring)
+
+[ ] Edit/Delete buttons on CategoryCards — Each card needs an edit button
+    (Edit2 icon) and delete button (Trash2 icon); App.tsx has
+    openEditCategory() but cards don't call it; no deleteCategory handler
+
+[ ] Date range filters — TransactionTable needs from/to date inputs
+    (linked to API ?from=&to= params); currently all transactions loaded
+    with ?sort=desc&pageSize=50 (no date filtering)
+
+[ ] Server-side pagination — TransactionTable paginates client-side from
+    50 loaded items; API supports ?page=&pageSize= but not wired
+
+[ ] Budget alert banner — api.createTransaction returns budgetAlert but
+    frontend shows it as generic message string; original had dedicated
+    alert section with danger/warning variant
+
+[ ] Refresh button — Original had RefreshCw icon button on transactions
+    panel; removed in rewrite
+
+================================================================================
+ 6. TECHNICAL DECISIONS & CONSTRAINTS
+================================================================================
+
+=== 6.1 STYLING ===
+- Tailwind CSS 4 via @tailwindcss/vite plugin (NOT postcss/tailwindcss v3)
+- @theme block in index.css defines all colors (no hardcoded raw hex in components)
+- Palette: blue-50..900, indigo-50..900, purple-50..900, gray-50..900
+- Status: green-50/500/600/700, red-50/500/600/700, amber-50/500/600
+- Theme tokens: sidebar-start, sidebar-end, sidebar-hover, sidebar-active, card,
+  card-border, gradient-start, gradient-end, radius-card, radius-button, radius-input
+- Font: Inter via Google Fonts
+- Components use <button> not <a> for navigation (sidebar uses onNavigate callback)
+- cn() utility from lib/utils.ts (clsx + tailwind-merge)
+- No CSS modules, no styled-components — all Tailwind utility classes
+
+=== 6.2 FORM CONVENTIONS ===
+- Inputs: h-10/11, rounded-xl, border-indigo-100, bg-indigo-50/50
+- Focus: ring-2 ring-indigo-400/20
+- Buttons: bg-gradient-to-r from-indigo-600 to-purple-600, shadow-lg shadow-indigo-500/25
+- Selects: same styling as inputs
+- Labels: text-[12px] or text-[13px] font-medium text-gray-600/700
+
+=== 6.3 API CONVENTIONS ===
+- All responses: { data: ... } or { data: ..., meta: { page, pageSize, total } }
+- Auth: POST /api/auth/{login,register,logout}, GET /api/auth/me
+- Transactions: GET/POST /api/transactions, PATCH/DELETE /api/transactions/:id
+- GET /api/transactions/summary — returns { data: { totalIncome, totalExpense, balance } }
+- Categories: GET/POST /api/categories, PATCH/DELETE /api/categories/:id
+- GET /api/categories/status — with ?month=YYYY-MM filter
+- POST /api/transactions returns { data: Transaction, budgetAlert: BudgetAlert | null }
+- Pagination: ?page=1&pageSize=10&sort=desc&type=&categoryId=&from=&to=
+- Errors: { message: string, code?: string }
+
+=== 6.4 PRISMA (PostgreSQL) ===
+- provider = "postgresql"
+- TransactionType enum (INCOME, EXPENSE)
+- Decimal @db.Decimal(14, 2) for monthlyBudget and amount
+- mappers.ts: toMoney(value: Prisma.Decimal | number) → Number(value)
+- budget.ts: category.monthlyBudget.lte(0), new Prisma.Decimal(0)
+- routes: import { Prisma } from "@prisma/client" (not type-only)
+- Migration: 20260618160000_init with CREATE TYPE, DECIMAL, TIMESTAMP
+- Prisma client regenerated after schema revert
+
+=== 6.5 TEST PATTERNS ===
+- vi.hoisted() for mock data and mock object
+- vi.mock("./api/client") returning { api: apiMock }
+- Login helper: type email/password → click "Iniciar sesión"
+- All async assertions in waitFor(() => expect(...), { timeout: 15000 })
+- Never use findByText with third-arg timeout (doesn't work with jsdom)
+- UserEvent v14 for realistic interactions
+- ResizeObserver polyfill required for recharts in jsdom
+
+================================================================================
+ 7. TYPE DEFINITIONS (from api/client.ts)
+================================================================================
+
+User:           { id: string, email: string }
+Category:       { id: string, name: string, monthlyBudget: number,
+                  spent?: number, usagePercent?: number,
+                  status?: "OK" | "OVER_80" | "OVER_100" }
+Transaction:    { id: string, type: "INCOME" | "EXPENSE", amount: number,
+                  description: string, categoryId: string, date: string }
+BudgetAlert:    { level: "OVER_80" | "OVER_100", message: string,
+                  categoryName: string, monthlyBudget: number,
+                  spent: number, usagePercent: number }
+Summary:        { totalIncome: number, totalExpense: number, balance: number }
+
+================================================================================
+ 8. RUNNING COMMANDS
+================================================================================
+
+Development:
+  npm run dev              — runs both api (4000) and web (5173) concurrently
+  npm run dev --workspace @fintech/api   — just the API
+  npm run dev --workspace @fintech/web   — just the web app
+
+Testing:
+  npm run test             — run web tests only (vitest)
+  npm run test:all         — run all tests (api + web)
+  cd apps/web && npx vitest --coverage  — run web tests with coverage
+  cd apps/web && npx vitest --ui         — interactive UI mode
+
+Database:
+  npm run prisma:generate --workspace @fintech/api
+  npm run db:dev --workspace @fintech/api   — prisma migrate dev
+  npm run db:seed --workspace @fintech/api  — seed demo data
+
+Build:
+  npm run build            — typecheck + build both api and web
+  cd apps/web && npx vite build  — build web only
+
+Lint:
+  npm run lint
+
+Docker:
+  docker compose up --build  — full stack with PostgreSQL
+  docker compose down -v     — clean shutdown with volume removal
+
+================================================================================
+ 9. FILE INDEX (key files, paths relative to repo root)
+================================================================================
+
+README.md                          — project docs, AI usage
+DESIGN.md                          — empty, needs architecture docs
+docker-compose.yml                 — PostgreSQL 16 + API + web
+package.json                       — workspace root
+
+apps/api/
+  .env                             — DATABASE_URL=file:./dev.db, JWT secrets
+  package.json                     — express 5, prisma 6, bcryptjs, jsonwebtoken, zod
+  Dockerfile                       — multi-stage build with db wait loop
+  prisma/
+    schema.prisma                  — SQLite schema (User, Category, Transaction)
+    seed.ts                        — demo data seeder
+    migrations/                    — SQLite migration files
+  src/
+    server.ts                      — entry point (port 4000)
+    app.ts                         — Express app (cors, helmet, cookie-parser, routes)
+    config.ts                      — env config (DATABASE_URL, JWT_SECRET, PORT, etc.)
+    prisma.ts                      — Prisma client singleton
+    auth.ts                        — requireAuth middleware, AuthenticatedRequest type
+    errors.ts                      — AppError class, asyncHandler, notFound
+    validation.ts                  — Zod schemas for all endpoints
+    mappers.ts                     — mapCategory, mapTransaction, toMoney
+    budget.ts                      — getBudgetAlert, boundsFromMonth, BudgetAlert type
+    routes.auth.ts                 — auth endpoints
+    routes.transactions.ts         — CRUD transactions + summary
+    routes.categories.ts           — CRUD categories + status
+
+apps/web/
+  index.html                       — Inter font, lang=es
+  package.json                     — react 18, vite 8, tailwindcss 4, recharts 2
+  vite.config.ts                   — @tailwindcss/vite plugin, proxy to :4000, vitest config
+  nginx.conf                       — nginx config for Docker deployment
+  Dockerfile                       — nginx-based production build
+  src/
+    main.tsx                       — ReactDOM.createRoot
+    App.tsx                        — root: auth → dashboard + modals (328 lines)
+    App.test.tsx                   — 31 tests (191 lines)
+    index.css                      — Tailwind 4 @import + @theme (90 lines)
+    test.setup.ts                  — jest-dom + ResizeObserver (10 lines)
+    api/client.ts                  — typed API client (122 lines)
+    lib/utils.ts                   — cn() utility (6 lines)
+    components/
+      auth/login-form.tsx          — login form (95 lines)
+      layout/sidebar.tsx           — sidebar (63 lines)
+      layout/navbar.tsx            — navbar (40 lines)
+      layout/dashboard-layout.tsx  — layout wrapper (24 lines)
+      dashboard/kpi-cards.tsx      — KPI cards (83 lines)
+      dashboard/analytics-section.tsx — charts (176 lines)
+      transactions/transaction-table.tsx — table (180 lines)
+      categories/category-cards.tsx    — budget cards (65 lines)
+      BudgetBadge.tsx              — pre-existing (from before rewrite)
+      BudgetBadge.test.tsx         — tests for BudgetBadge

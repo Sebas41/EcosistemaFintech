@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { requireAuth, type AuthenticatedRequest } from "./auth.js";
 import { asyncHandler, notFound } from "./errors.js";
 import { mapCategory, toMoney } from "./mappers.js";
@@ -58,7 +58,7 @@ categoriesRouter.get(
     const spentMap = new Map(
       spentByCategory.map((row) => [
         row.categoryId,
-        toMoney(row._sum.amount ?? new Prisma.Decimal(0))
+        toMoney(row._sum.amount ?? 0)
       ])
     );
 

@@ -1,7 +1,7 @@
-import type { Category, Transaction } from "@prisma/client";
+import type { Category, Prisma, Transaction } from "@prisma/client";
 
-export function toMoney(value: number) {
-  return value;
+export function toMoney(value: Prisma.Decimal | number) {
+  return Number(value);
 }
 
 export function mapCategory(category: Category) {

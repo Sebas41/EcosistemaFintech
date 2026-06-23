@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { toMoney } from "./mappers.js";
 
 export type BudgetAlert = {
@@ -42,7 +43,7 @@ export async function getBudgetAlert(
     where: { id: categoryId, userId }
   });
 
-  if (!category || category.monthlyBudget <= 0) {
+  if (!category || category.monthlyBudget.lte(0)) {
     return null;
   }
 
@@ -62,7 +63,7 @@ export async function getBudgetAlert(
     }
   });
 
-  const spent = toMoney(aggregate._sum.amount ?? 0);
+  const spent = toMoney(aggregate._sum.amount ?? new Prisma.Decimal(0));
   const monthlyBudget = toMoney(category.monthlyBudget);
   const usagePercent = monthlyBudget > 0 ? Math.round((spent / monthlyBudget) * 10000) / 100 : 0;
   const level = usagePercent >= 100 ? "OVER_100" : usagePercent >= 80 ? "OVER_80" : "NONE";

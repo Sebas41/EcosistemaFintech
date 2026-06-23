@@ -3,8 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
 }
 
 model User {
@@ -21,7 +26,7 @@ model Category {
   id            String        @id @default(cuid())
   userId        String
   name          String
-  monthlyBudget Float
+  monthlyBudget Decimal       @db.Decimal(14, 2)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -32,17 +37,17 @@ model Category {
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   userId      String
   categoryId  String
-  type        String
-  amount      Float
+  type        TransactionType
+  amount      Decimal         @db.Decimal(14, 2)
   description String
   date        DateTime
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   @@index([userId, date])
   @@index([userId, type])

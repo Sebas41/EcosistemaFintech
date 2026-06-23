@@ -1,6 +1,7 @@
 ================================================================================
  CONTEXT SNAPSHOT — Fintech Personal Finance
  Date: 2026-06-22
+ Last update: Reverted SQLite → PostgreSQL for Docker Compose compatibility
 ================================================================================
 
 ================================================================================
@@ -10,7 +11,7 @@
 Full-stack fintech MVP monorepo for managing personal finances:
 transactions, categories with monthly budgets, and analytics dashboard.
 
-- Backend: Express 5, TypeScript, Prisma 6, SQLite (local) / PostgreSQL (Docker/CI)
+- Backend: Express 5, TypeScript, Prisma 6, PostgreSQL (Docker Compose / CI)
 - Frontend: React 18, Vite 8, Tailwind CSS 4, Recharts 2, Lucide React
 - Testing: Vitest, @testing-library/react, jsdom, coverage thresholds
 - CI/CD: GitHub Actions (lint, test:all, build), Codecov, CodeQL, Dependabot, Docker
@@ -34,6 +35,13 @@ c599d41 ci: add Dependabot config and weekly dependency audit
 9fd999b fix: derive cookie maxAge from JWT_EXPIRES_IN and pin dependency versions
 5427840 fix: add DNS resolver to nginx proxy config
 4df4972 fix: add database wait loop to API Dockerfile CMD
+
+4df4972 fix: add database wait loop to API Dockerfile CMD
+8e100de feat(api): migrate from PostgreSQL to SQLite for local development without Docker
+b87af27 feat(web): redesign UI with Tailwind CSS 4, sidebar layout, charts, and blue/purple theme
+2207c9b test(web): rewrite 31 tests with waitFor pattern for login flow and modal CRUD
+be55f3a docs: add DESIGN.md with architecture decisions and context snapshot
+b48f37a revert(api): restore PostgreSQL schema and revert SQLite migration
 
 All CI/CD pipelines pre-configured: ci.yml, codeql.yml, docker.yml, audit.yml
 
@@ -247,14 +255,15 @@ apps/
 - Pagination: ?page=1&pageSize=10&sort=desc&type=&categoryId=&from=&to=
 - Errors: { message: string, code?: string }
 
-=== 6.4 PRISMA (SQLite MODE) ===
-- provider = "sqlite" (changed from postgresql)
-- All Float fields (changed from Decimal)
-- type String (changed from enum for Transaction.type)
-- No @db.Decimal annotations
-- mappers.ts: toMoney() returns value as-is (no Prisma.Decimal conversion)
-- budget.ts: <= 0 instead of .lte(0), Prisma.Decimal fallback removed
-- routes: import type { Prisma } for types only
+=== 6.4 PRISMA (PostgreSQL) ===
+- provider = "postgresql"
+- TransactionType enum (INCOME, EXPENSE)
+- Decimal @db.Decimal(14, 2) for monthlyBudget and amount
+- mappers.ts: toMoney(value: Prisma.Decimal | number) → Number(value)
+- budget.ts: category.monthlyBudget.lte(0), new Prisma.Decimal(0)
+- routes: import { Prisma } from "@prisma/client" (not type-only)
+- Migration: 20260618160000_init with CREATE TYPE, DECIMAL, TIMESTAMP
+- Prisma client regenerated after schema revert
 
 === 6.5 TEST PATTERNS ===
 - vi.hoisted() for mock data and mock object

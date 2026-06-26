@@ -1,4 +1,4 @@
-# Fintech Personal Finance
+# Saldo Vivo
 
 MVP full stack para gestionar movimientos financieros personales, categorías y presupuestos mensuales.
 

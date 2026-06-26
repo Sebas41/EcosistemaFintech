@@ -7,6 +7,7 @@ import { KpiCards } from "./components/dashboard/kpi-cards";
 import { AnalyticsSection } from "./components/dashboard/analytics-section";
 import { TransactionTable, type TransactionFilters } from "./components/transactions/transaction-table";
 import { CategoryCards } from "./components/categories/category-cards";
+import { SavingsOverview } from "./components/savings/savings-overview";
 import "./index.css";
 
 function today() {
@@ -36,6 +37,7 @@ function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [transactionTotal, setTransactionTotal] = useState(0);
   const [summary, setSummary] = useState<Summary>({ totalIncome: 0, totalExpense: 0, balance: 0 });
   const [activeView, setActiveView] = useState("dashboard");
@@ -63,14 +65,26 @@ function App() {
     return `?${params.toString()}`;
   }, [filters]);
 
+  async function fetchAllTransactions() {
+    const all: Transaction[] = [];
+    for (let page = 1; page <= 50; page++) {
+      const result = await api.transactions(`?page=${page}&pageSize=100&sort=asc`);
+      all.push(...result.data);
+      if (all.length >= result.meta.total) break;
+    }
+    return all;
+  }
+
   async function loadData() {
-    const [catRes, txRes, sumRes] = await Promise.all([
+    const [catRes, txRes, allTx, sumRes] = await Promise.all([
       api.categoryStatus(),
       api.transactions(transactionQuery),
+      fetchAllTransactions(),
       api.summary()
     ]);
     setCategories(catRes.data);
     setTransactions(txRes.data);
+    setAllTransactions(allTx);
     setTransactionTotal(txRes.meta.total);
     setSummary(sumRes.data);
     if (!txForm.categoryId && catRes.data[0]) {
@@ -111,6 +125,7 @@ function App() {
     setUser(null);
     setCategories([]);
     setTransactions([]);
+    setAllTransactions([]);
     setTransactionTotal(0);
   }
 
@@ -206,7 +221,7 @@ function App() {
       {activeView === "dashboard" && (
         <div className="space-y-8">
           <KpiCards summary={summary} />
-          <AnalyticsSection transactions={transactions} categories={categories} />
+          <AnalyticsSection transactions={allTransactions} categories={categories} />
         </div>
       )}
 
@@ -240,17 +255,13 @@ function App() {
               Nueva categoria
             </button>
           </div>
-          <CategoryCards categories={categories} transactions={transactions} onEdit={openEditCategory} onDelete={handleDeleteCategory} />
+          <CategoryCards categories={categories} transactions={allTransactions} onEdit={openEditCategory} onDelete={handleDeleteCategory} />
         </div>
       )}
 
-      {activeView === "analytics" && <AnalyticsSection transactions={transactions} categories={categories} />}
+      {activeView === "analytics" && <AnalyticsSection transactions={allTransactions} categories={categories} />}
 
-      {activeView === "savings" && (
-        <div className="flex h-64 items-center justify-center rounded-[16px] border border-indigo-100/50 bg-white shadow-sm">
-          <p className="text-[15px] text-gray-400">Proximamente: seccion de ahorros</p>
-        </div>
-      )}
+      {activeView === "savings" && <SavingsOverview transactions={allTransactions} />}
 
       {showTxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm" onClick={() => { setShowTxModal(false); setEditingTxId(null); }}>

@@ -19,7 +19,7 @@ Requisito: Docker y Docker Compose instalados.
 docker compose up --build
 ```
 
-Servicios:
+Servicios locales:
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:4000/api`
@@ -49,6 +49,7 @@ npm run dev
 - Resumen de balance: ingresos menos egresos.
 - Categorías por usuario con presupuesto mensual.
 - Estado de presupuesto por categoría: presupuesto, gastado, porcentaje y alerta al superar 80% o 100%.
+- Vista de ahorro mensual calculada desde ingresos y gastos históricos.
 
 ## Seguridad y arquitectura
 
@@ -86,7 +87,8 @@ El pipeline en `.github/workflows/ci.yml` ejecuta instalación limpia, generaci�
 
 ## URL de despliegue
 
-Pendiente de publicar. En este entorno no hay credenciales de hosting configuradas; para entrega final, desplegar `docker-compose.yml` o separar API/web en un proveedor administrado y reemplazar esta sección con la URL pública.
+- Frontend: `https://ecosistemafintech-1.onrender.com`
+- API: `https://ecosistemafintech.onrender.com/api`
 
 ## AI Usage
 

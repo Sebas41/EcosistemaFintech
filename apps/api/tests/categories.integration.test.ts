@@ -213,7 +213,7 @@ describe("Categories routes — integration", () => {
       expect(res.status).toBe(204);
     });
 
-    it("returns 409 when category has transactions", async () => {
+    it("deletes category transactions before deleting category", async () => {
       await prisma.transaction.create({
         data: {
           userId, categoryId, type: "EXPENSE", amount: 10000,
@@ -222,10 +222,11 @@ describe("Categories routes — integration", () => {
       });
 
       const res = await request(app)
-        .delete(`/api/categories/${categoryId}`)
-        .set("Cookie", cookie);
+          .delete(`/api/categories/${categoryId}`)
+          .set("Cookie", cookie);
 
-      expect(res.status).toBe(409);
+      expect(res.status).toBe(204);
+      await expect(prisma.transaction.findMany({ where: { categoryId } })).resolves.toHaveLength(0);
     });
   });
 

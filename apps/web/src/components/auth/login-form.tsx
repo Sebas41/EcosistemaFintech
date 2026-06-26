@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2, Wallet } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { BrandLogo } from "../brand/brand-logo";
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -33,10 +34,10 @@ export function LoginForm({ onLogin, onRegister, error }: LoginFormProps) {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
       <div className="w-full max-w-[420px]">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-            <Wallet size={24} className="text-white" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl shadow-lg shadow-indigo-500/25">
+            <BrandLogo size={56} />
           </div>
-          <h1 className="text-[22px] font-bold tracking-tight text-gray-900">Fintech</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-gray-900">Saldo Vivo</h1>
           <p className="mt-1 text-[14px] text-gray-500">
             {mode === "login" ? "Accede a tu panel financiero" : "Crea tu cuenta financiera"}
           </p>

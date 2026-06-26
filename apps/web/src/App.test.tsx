@@ -46,7 +46,7 @@ async function login() {
 describe("App", () => {
   it("renders auth form when not logged in", () => {
     render(<App />);
-    expect(screen.getByText("Fintech")).toBeInTheDocument();
+    expect(screen.getByText("Saldo Vivo")).toBeInTheDocument();
     expect(screen.getByText("Iniciar sesion")).toBeInTheDocument();
     expect(screen.getByText("Crear una cuenta")).toBeInTheDocument();
   });

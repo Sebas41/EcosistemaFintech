@@ -1,5 +1,6 @@
 import { BarChart3, CreditCard, LayoutDashboard, LogOut, PiggyBank, Wallet } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { BrandLogo } from "../brand/brand-logo";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -19,12 +20,12 @@ export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-gradient-to-b from-[#0f172a] to-[#1e1b4b] text-white">
       <div className="flex items-center gap-3 px-6 py-7">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-          <Wallet size={18} className="text-white" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg shadow-lg shadow-indigo-500/25">
+          <BrandLogo size={40} />
         </div>
         <div>
-          <span className="text-[15px] font-semibold tracking-tight">Fintech</span>
-          <span className="block text-[11px] font-medium tracking-wide text-indigo-300/70">PERSONAL FINANCE</span>
+          <span className="text-[15px] font-semibold tracking-tight">Saldo Vivo</span>
+          <span className="block text-[11px] font-medium tracking-wide text-indigo-300/70">FINANZAS PERSONALES</span>
         </div>
       </div>
 

@@ -138,7 +138,12 @@ categoriesRouter.delete(
       throw notFound("Category not found");
     }
 
-    await prisma.category.delete({ where: { id: existing.id } });
+    await prisma.$transaction([
+      prisma.transaction.deleteMany({
+        where: { categoryId: existing.id, userId: authReq.user.id }
+      }),
+      prisma.category.delete({ where: { id: existing.id } })
+    ]);
     res.status(204).send();
   })
 );

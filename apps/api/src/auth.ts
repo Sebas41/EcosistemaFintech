@@ -41,7 +41,7 @@ function parseExpiresIn(value: string): number {
 export function sessionCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: config.COOKIE_SECURE ? "none" as const : "lax" as const,
     secure: config.COOKIE_SECURE,
     maxAge: parseExpiresIn(config.JWT_EXPIRES_IN ?? "2h")
   };
